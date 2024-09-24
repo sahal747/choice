@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Choice Plastics - Income & Expense Tracker</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            text-align: center;
+            font-size: 2em;
+            font-weight: bold;
+            position: relative;
+        }
+        .edit-heading {
+            position: absolute;
+            right: -25px;
+            top: 10px;
+            cursor: pointer;
+        }
+        .form-container, .totals-container {
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        .input-group {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        .input-group input, .input-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .totals-container {
+            text-align: left;
+            line-height: 2em;
+            font-size: 1em;
+        }
+        button {
+            padding: 10px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .add-btn {
+            background-color: #28a745;
+            color: white;
+        }
+        .delete-btn {
+            background-color: #dc3545;
+            color: white;
+        }
+        .clear-btn, .download-pdf-btn, .download-excel-btn {
+            background-color: #dc3545;
+            color: white;
+            margin-top: 10px;
+        }
+        .download-pdf-btn {
+            background-color: #007bff;
+        }
+        .download-excel-btn {
+            background-color: #28a745;
+        }
+        .transactions-container {
+            margin-top: 30px;
+        }
+        .transactions-container table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .transactions-container table, th, td {
+            border: 1px solid #ddd;
+        }
+        .transactions-container th, td {
+            padding: 8px;
+            text-align: left;
+        }
+        .transactions-container th {
+            background-color: #f2f2f2;
+        }
+        .actions {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+        }
+        .filter-container {
+            display: flex;
+            gap: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1 id="main-heading">Choice Plastics <span class="edit-heading">✏️</span></h1>
+
+        <div class="form-container">
+            <div class="input-group">
+                <label for="date-input">Date:</label>
+                <input type="date" id="date-input">
+            </div>
+            <div class="input-group">
+                <label for="transaction-type">Transaction Type:</label>
+                <select id="transaction-type">
+                    <option value="income">Income</option>
+                    <option value="expense">Expense</option>
+                </select>
+            </div>
+            <div class="input-group" id="income-expense-type-group">
+                <label for="income-expense-type">Type:</label>
+                <select id="income-expense-type">
+                    <option value="sales">Sales</option>
+                    <option value="other">Other</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <label for="description">Description:</label>
+                <input type="text" id="description" placeholder="Enter description">
+            </div>
+            <div class="input-group">
+                <label for="amount">Amount:</label>
+                <input type="number" id="amount" placeholder="Enter amount">
+            </div>
+            <div class="input-group">
+                <label for="transaction-mode">Mode of Transaction:</label>
+                <select id="transaction-mode">
+                    <option value="cash">Cash</option>
+                    <option value="upi">UPI</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <button id="add-transaction" class="add-btn" disabled>Add Transaction</button>
+            </div>
+        </div>
+
+        <div class="totals-container">
+            <p><strong>Total Income:</strong> ₹<span id="total-income">0.00</span></p>
+            <p><strong>Total Expense:</strong> ₹<span id="total-expense">0.00</span></p>
+            <p><strong>Balance:</strong> ₹<span id="balance">0.00</span></p>
+        </div>
+
+        <div class="actions">
+            <button id="clear-all" class="clear-btn">Clear All</button>
+            <button id="export-pdf" class="download-pdf-btn">Download PDF</button>
+            <button id="export-excel" class="download-excel-btn">Download Excel</button>
+        </div>
+    </div>
+
+    <div class="transactions-container">
+        <h3>Transactions</h3>
+        <div class="filter-container">
+            <input type="date" id="from-date">
+            <input type="date" id="to-date">
+            <select id="filter-type">
+                <option value="all">All</option>
+                <option value="income">Income</option>
+                <option value="expense">Expense</option>
+            </select>
+            <select id="filter-subtype">
+                <option value="all">All</option>
+            </select>
+            <button id="filter-transactions" class="add-btn">Show</button>
+        </div>
+        <table id="transaction-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th>Category</th>
+                    <th>Description</th>
+                    <th>Amount</th>
+                    <th>Mode</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="transaction-list"></tbody>
+        </table>
+    </div>
+
+    <script>
+        const dateInput = document.getElementById('date-input');
+        const today = new Date().toISOString().split('T')[0];
+        dateInput.value = today;
+
+        let transactions = JSON.parse(localStorage.getItem('transactions')) || [];
+
+        const transactionTypeSelect = document.getElementById('transaction-type');
+        const incomeExpenseTypeSelect = document.getElementById('income-expense-type');
+
+        const incomeOptions = [
+            { value: 'sales', label: 'Sales' },
+            { value: 'other', label: 'Other' }
+        ];
+        const expenseOptions = [
+            { value: 'salary', label: 'Salary' },
+            { value: 'vendor', label: 'Vendor' },
+            { value: 'food', label: 'Food' },
+            { value: 'fuel', label: 'Fuel' },
+            { value: 'other', label: 'Other' }
+        ];
+
+        function populateIncomeExpenseOptions() {
+            const selectedTransactionType = transactionTypeSelect.value;
+            incomeExpenseTypeSelect.innerHTML = ''; 
+            const optionsToAdd = selectedTransactionType === 'income' ? incomeOptions : expenseOptions;
+            optionsToAdd.forEach(option => {
+                const optElement = document.createElement('option');
+                optElement.value = option.value;
+                optElement.textContent = option.label;
+                incomeExpenseTypeSelect.appendChild(optElement);
+            });
+        }
+
+        populateIncomeExpenseOptions();
+        transactionTypeSelect.addEventListener('change', populateIncomeExpenseOptions);
+
+        const mainHeading = document.getElementById('main-heading');
+        const editHeadingIcon = document.querySelector('.edit-heading');
+
+        editHeadingIcon.addEventListener('click', () => {
+            const newHeading = prompt('Enter new heading:');
+            if (newHeading) {
+                mainHeading.textContent = newHeading;
+                localStorage.setItem('mainHeading', newHeading);
+            }
+        });
+
+        const savedHeading = localStorage.getItem('mainHeading');
+        if (savedHeading) {
+            mainHeading.textContent = savedHeading;
+        }
+
+        function updateTotals() {
+            const totalIncome = transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + Number(t.amount), 0);
+            const totalExpense = transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + Number(t.amount), 0);
+            const balance = totalIncome - totalExpense;
+
+            document.getElementById('total-income').textContent = totalIncome.toFixed(2);
+            document.getElementById('total-expense').textContent = totalExpense.toFixed(2);
+            document.getElementById('balance').textContent = balance.toFixed(2);
+        }
+
+        function renderTransactions() {
+            const transactionList = document.getElementById('transaction-list');
+            transactionList.innerHTML = '';
+
+            transactions.forEach((transaction, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${transaction.date}</td>
+                    <td>${transaction.type}</td>
+                    <td>${transaction.category}</td>
+                    <td>${transaction.description}</td>
+                    <td>₹${transaction.amount}</td>
+                    <td>${transaction.mode}</td>
+                    <td>
+                        <button class="edit-btn" onclick="editTransaction(${index})">Edit</button>
+                        <button class="delete-btn" onclick="deleteTransaction(${index})">Delete</button>
+                    </td>
+                `;
+                transactionList.appendChild(row);
+            });
+        }
+
+        function addTransaction() {
+            const transaction = {
+                date: dateInput.value,
+                type: transactionTypeSelect.value,
+                category: incomeExpenseTypeSelect.value,
+                description: document.getElementById('description').value,
+                amount: document.getElementById('amount').value,
+                mode: document.getElementById('transaction-mode').value
+            };
+            transactions.push(transaction);
+            localStorage.setItem('transactions', JSON.stringify(transactions));
+            resetForm();
+            updateTotals();
+            renderTransactions();
+        }
+
+        function resetForm() {
+            document.getElementById('description').value = '';
+            document.getElementById('amount').value = '';
+            document.getElementById('add-transaction').disabled = true;
+        }
+
+        document.getElementById('amount').addEventListener('input', function () {
+            const amount = this.value;
+            document.getElementById('add-transaction').disabled = !amount;
+        });
+
+        document.getElementById('add-transaction').addEventListener('click', addTransaction);
+
+        function editTransaction(index) {
+            const transaction = transactions[index];
+            dateInput.value = transaction.date;
+            transactionTypeSelect.value = transaction.type;
+            incomeExpenseTypeSelect.value = transaction.category;
+            document.getElementById('description').value = transaction.description;
+            document.getElementById('amount').value = transaction.amount;
+            document.getElementById('transaction-mode').value = transaction.mode;
+            transactions.splice(index, 1);
+            localStorage.setItem('transactions', JSON.stringify(transactions));
+            updateTotals();
+            renderTransactions();
+        }
+
+        function deleteTransaction(index) {
+            if (confirm('Are you sure you want to delete this transaction?')) {
+                transactions.splice(index, 1);
+                localStorage.setItem('transactions', JSON.stringify(transactions));
+                updateTotals();
+                renderTransactions();
+            }
+        }
+
+        document.getElementById('clear-all').addEventListener('click', () => {
+            if (confirm('Are you sure you want to clear all transactions?')) {
+                transactions = [];
+                localStorage.removeItem('transactions');
+                updateTotals();
+                renderTransactions();
+            }
+        });
+
+        document.getElementById('filter-transactions').addEventListener('click', () => {
+            const filterType = document.getElementById('filter-type').value;
+            const filterSubtype = document.getElementById('filter-subtype').value;
+
+            const filteredTransactions = transactions.filter(transaction => {
+                if (filterType === 'all') return true;
+                return transaction.type === filterType && (filterSubtype === 'all' || transaction.category === filterSubtype);
+            });
+
+            const transactionList = document.getElementById('transaction-list');
+            transactionList.innerHTML = '';
+
+            filteredTransactions.forEach((transaction, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${transaction.date}</td>
+                    <td>${transaction.type}</td>
+                    <td>${transaction.category}</td>
+                    <td>${transaction.description}</td>
+                    <td>₹${transaction.amount}</td>
+                    <td>${transaction.mode}</td>
+                    <td>
+                        <button class="edit-btn" onclick="editTransaction(${index})">Edit</button>
+                        <button class="delete-btn" onclick="deleteTransaction(${index})">Delete</button>
+                    </td>
+                `;
+                transactionList.appendChild(row);
+            });
+        });
+
+        const filterTypeSelect = document.getElementById('filter-type');
+        const filterSubtypeSelect = document.getElementById('filter-subtype');
+
+        filterTypeSelect.addEventListener('change', () => {
+            const selectedType = filterTypeSelect.value;
+            filterSubtypeSelect.innerHTML = '<option value="all">All</option>';
+            const optionsToAdd = selectedType === 'income' ? incomeOptions : expenseOptions;
+
+            optionsToAdd.forEach(option => {
+                const optElement = document.createElement('option');
+                optElement.value = option.value;
+                optElement.textContent = option.label;
+                filterSubtypeSelect.appendChild(optElement);
+            });
+        });
+
+        renderTransactions();
+        updateTotals();
+    </script>
+</body>
+</html>
