@@ -106,9 +106,9 @@
         .filter-container {
             display: flex;
             gap: 10px;
+            margin-bottom: 15px;
         }
     </style>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
 </head>
 <body>
@@ -137,11 +137,11 @@
             </div>
             <div class="input-group">
                 <label for="description">Description:</label>
-                <input type="text" id="description" placeholder="Enter description">
+                <input type="text" id="description" placeholder="Enter description" onkeypress="if(event.key === 'Enter'){event.preventDefault(); moveToNextInput('amount');}">
             </div>
             <div class="input-group">
                 <label for="amount">Amount:</label>
-                <input type="number" id="amount" placeholder="Enter amount" oninput="toggleAddButton()">
+                <input type="number" id="amount" placeholder="Enter amount" oninput="toggleAddButton()" onkeypress="if(event.key === 'Enter'){event.preventDefault(); addTransaction();}">
             </div>
             <div class="input-group">
                 <label for="transaction-mode">Mode of Transaction:</label>
@@ -170,16 +170,10 @@
     <div class="transactions-container">
         <h3>Transactions</h3>
         <div class="filter-container">
+            <label for="from-date">From:</label>
             <input type="date" id="from-date">
+            <label for="to-date">To:</label>
             <input type="date" id="to-date">
-            <select id="filter-type">
-                <option value="all">All</option>
-                <option value="income">Income</option>
-                <option value="expense">Expense</option>
-            </select>
-            <select id="filter-subtype">
-                <option value="all">All</option>
-            </select>
             <button id="filter-transactions" class="add-btn">Show</button>
         </div>
         <table id="transaction-table">
@@ -305,10 +299,10 @@
 
         document.getElementById('add-transaction').addEventListener('click', addTransaction);
         
-        function updateTransactionList() {
+        function updateTransactionList(filteredTransactions = transactions) {
             const transactionList = document.getElementById('transaction-list');
             transactionList.innerHTML = '';
-            transactions.forEach((transaction, index) => {
+            filteredTransactions.forEach((transaction, index) => {
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td>${transaction.date.split('-').reverse().join('-')}</td>
@@ -344,44 +338,37 @@
         });
 
         document.getElementById('export').addEventListener('click', () => {
-            const format = prompt('Enter "pdf" or "excel" to download:');
-            if (format === 'pdf') {
-                downloadPDF();
-            } else if (format === 'excel') {
-                downloadExcel();
-            } else {
-                alert('Invalid format! Please enter "pdf" or "excel".');
+            const customFileName = prompt('Enter custom file name:', `${companyName}_${new Date().toLocaleDateString()}`);
+            if (customFileName) {
+                downloadExcel(customFileName);
             }
         });
 
-        function downloadPDF() {
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
-            let tableColumn = ["Date", "Type", "Category", "Description", "Amount", "Mode"];
-            let tableRows = [];
-
-            transactions.forEach(transaction => {
-                let transactionData = [
-                    transaction.date.split('-').reverse().join('-'),
-                    transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1),
-                    transaction.subtype.charAt(0).toUpperCase() + transaction.subtype.slice(1),
-                    transaction.description,
-                    `₹${transaction.amount.toFixed(2)}`,
-                    transaction.mode.charAt(0).toUpperCase() + transaction.mode.slice(1)
-                ];
-                tableRows.push(transactionData);
-            });
-
-            doc.autoTable(tableColumn, tableRows);
-            doc.save(`${companyName}_${new Date().toLocaleDateString().replace(/\//g, '-')}_transactions.pdf`);
-        }
-
-        function downloadExcel() {
+        function downloadExcel(fileName) {
             const worksheet = XLSX.utils.json_to_sheet(transactions);
             const workbook = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(workbook, worksheet, 'Transactions');
-            XLSX.writeFile(workbook, `${companyName}_${new Date().toLocaleDateString().replace(/\//g, '-')}_transactions.xlsx`);
+            XLSX.writeFile(workbook, `${fileName}.xlsx`);
         }
+
+        function moveToNextInput(nextInputId) {
+            const nextInput = document.getElementById(nextInputId);
+            if (nextInput) {
+                nextInput.focus();
+            }
+        }
+
+        document.getElementById('filter-transactions').addEventListener('click', () => {
+            const fromDate = document.getElementById('from-date').value;
+            const toDate = document.getElementById('to-date').value;
+
+            const filteredTransactions = transactions.filter(transaction => {
+                const transactionDate = new Date(transaction.date);
+                return (!fromDate || transactionDate >= new Date(fromDate)) && (!toDate || transactionDate <= new Date(toDate));
+            });
+
+            updateTransactionList(filteredTransactions);
+        });
 
         updateTransactionList();
         updateTotals();
