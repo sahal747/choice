@@ -174,6 +174,22 @@
             <input type="date" id="from-date">
             <label for="to-date">To:</label>
             <input type="date" id="to-date">
+            <label for="transaction-filter">Filter:</label>
+            <select id="transaction-filter">
+                <option value="all">All</option>
+                <option value="income">Income</option>
+                <option value="expense">Expense</option>
+            </select>
+            <label for="subtype-filter">Type:</label>
+            <select id="subtype-filter">
+                <option value="">All</option>
+                <option value="sales">Sales</option>
+                <option value="other">Other</option>
+                <option value="salary">Salary</option>
+                <option value="vendor">Vendor</option>
+                <option value="food">Food</option>
+                <option value="fuel">Fuel</option>
+            </select>
             <button id="filter-transactions" class="add-btn">Show</button>
         </div>
         <table id="transaction-table">
@@ -231,22 +247,13 @@
         transactionTypeSelect.addEventListener('change', populateIncomeExpenseOptions);
 
         const mainHeading = document.getElementById('main-heading');
-        const editHeadingIcon = document.querySelector('.edit-heading');
-
-        editHeadingIcon.addEventListener('click', () => {
-            const newHeading = prompt('Enter new heading:');
+        mainHeading.addEventListener('click', () => {
+            const newHeading = prompt('Enter new company name:', companyName);
             if (newHeading) {
-                companyName = newHeading; // Update company name
-                mainHeading.textContent = companyName;
-                localStorage.setItem('mainHeading', newHeading);
+                companyName = newHeading;
+                mainHeading.childNodes[0].textContent = companyName;
             }
         });
-
-        const savedHeading = localStorage.getItem('mainHeading');
-        if (savedHeading) {
-            companyName = savedHeading;
-            mainHeading.textContent = companyName;
-        }
 
         function updateTotals() {
             const totalIncome = transactions
@@ -361,10 +368,15 @@
         document.getElementById('filter-transactions').addEventListener('click', () => {
             const fromDate = document.getElementById('from-date').value;
             const toDate = document.getElementById('to-date').value;
+            const filterType = document.getElementById('transaction-filter').value;
+            const subtypeFilter = document.getElementById('subtype-filter').value;
 
             const filteredTransactions = transactions.filter(transaction => {
                 const transactionDate = new Date(transaction.date);
-                return (!fromDate || transactionDate >= new Date(fromDate)) && (!toDate || transactionDate <= new Date(toDate));
+                const isWithinDateRange = (!fromDate || transactionDate >= new Date(fromDate)) && (!toDate || transactionDate <= new Date(toDate));
+                const isMatchingType = filterType === 'all' || transaction.type === filterType;
+                const isMatchingSubtype = !subtypeFilter || transaction.subtype === subtypeFilter;
+                return isWithinDateRange && isMatchingType && isMatchingSubtype;
             });
 
             updateTransactionList(filteredTransactions);
@@ -375,4 +387,5 @@
     </script>
 </body>
 </html>
+
 
