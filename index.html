@@ -76,9 +76,6 @@
             color: white;
             margin-top: 10px;
         }
-        .download-btn {
-            background-color: #007bff;
-        }
         .transactions-container {
             margin-top: 30px;
         }
@@ -106,6 +103,8 @@
             gap: 10px;
         }
     </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -195,84 +194,218 @@
     </div>
 
     <script>
-        // Main heading and edit functionality
-        const mainHeading = document.getElementById('main-heading');
-        const editHeadingIcon = document.querySelector('.edit-heading');
-        editHeadingIcon.addEventListener('click', () => {
-            const newHeading = prompt('Enter new heading:');
-            if (newHeading) {
-                mainHeading.textContent = newHeading;
-                localStorage.setItem('mainHeading', newHeading);
-            }
+        // Set default live date and move to the next field on Enter
+        const dateInput = document.getElementById('date-input');
+        const today = new Date().toISOString().split('T')[0];
+        dateInput.value = today;
+        const fields = document.querySelectorAll('input, select');
+        fields.forEach((field, index) => {
+            field.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    fields[(index + 1) % fields.length].focus();
+                }
+            });
         });
 
-        // Set default heading from localStorage
-        const savedHeading = localStorage.getItem('mainHeading');
-        if (savedHeading) {
-            mainHeading.textContent = savedHeading;
+        let transactions = JSON.parse(localStorage.getItem('transactions')) || [];
+        let companyName = "Choice Plastics";
+
+        // Populate transaction type options
+        const transactionTypeSelect = document.getElementById('transaction-type');
+        const incomeExpenseTypeSelect = document.getElementById('income-expense-type');
+
+        const incomeOptions = [
+            { value: 'sales', label: 'Sales' },
+            { value: 'other', label: 'Other' }
+        ];
+        const expenseOptions = [
+            { value: 'salary', label: 'Salary' },
+            { value: 'vendor', label: 'Vendor' },
+            { value: 'food', label: 'Food' },
+            { value: 'fuel', label: 'Fuel' },
+            { value: 'other', label: 'Other' }
+        ];
+
+        function populateIncomeExpenseOptions() {
+            const selectedTransactionType = transactionTypeSelect.value;
+            incomeExpenseTypeSelect.innerHTML = ''; // Clear previous options
+
+            const options = selectedTransactionType === 'income' ? incomeOptions : expenseOptions;
+            options.forEach(option => {
+                const opt = document.createElement('option');
+                opt.value = option.value;
+                opt.textContent = option.label;
+                incomeExpenseTypeSelect.appendChild(opt);
+            });
         }
 
-        // Move to the next input field on 'Enter' key press
-        document.addEventListener('keydown', function (e) {
-            if (e.key === 'Enter') {
-                const formElements = [...document.querySelectorAll('input, select')];
-                const currentIndex = formElements.indexOf(document.activeElement);
-                const nextElement = formElements[currentIndex + 1];
-                if (nextElement) nextElement.focus();
-            }
+        transactionTypeSelect.addEventListener('change', populateIncomeExpenseOptions);
+        populateIncomeExpenseOptions(); // Initial population
+
+        // Add transaction
+        const addTransactionButton = document.getElementById('add-transaction');
+        const amountInput = document.getElementById('amount');
+
+        amountInput.addEventListener('input', () => {
+            addTransactionButton.disabled = !amountInput.value || amountInput.value <= 0;
         });
 
-        // Download button functionality
-        document.getElementById('download-btn').addEventListener('click', function () {
-            const downloadType = prompt('Download as PDF or Excel? (Type "PDF" or "Excel")');
-            if (downloadType.toLowerCase() === 'pdf') {
-                alert('Download as PDF');
-                // Implement PDF download logic
-            } else if (downloadType.toLowerCase() === 'excel') {
-                alert('Download as Excel');
-                // Implement Excel download logic
-            } else {
-                alert('Invalid input! Please enter PDF or Excel.');
-            }
-        });
-
-        // Convert date to day-month-year format
-        function formatDateToDMY(dateString) {
-            const date = new Date(dateString);
-            const day = String(date.getDate()).padStart(2, '0');
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const year = date.getFullYear();
+        function formatTransactionDate(dateString) {
+            const [year, month, day] = dateString.split('-');
             return `${day}-${month}-${year}`;
         }
 
-        // Example transaction rendering with date format change
+        function addTransaction() {
+            const transaction = {
+                date: dateInput.value,
+                type: transactionTypeSelect.value,
+                category: incomeExpenseTypeSelect.value,
+                description: document.getElementById('description').value,
+                amount: parseFloat(amountInput.value),
+                mode: document.getElementById('transaction-mode').value
+            };
+
+            transactions.push(transaction);
+            localStorage.setItem('transactions', JSON.stringify(transactions));
+            renderTransactions();
+            clearForm();
+        }
+
         function renderTransactions() {
-            const transactions = [
-                { date: '2024-09-01', type: 'income', category: 'sales', description: 'Product A', amount: 500, mode: 'cash' },
-                { date: '2024-09-02', type: 'expense', category: 'salary', description: 'Staff Payment', amount: 1000, mode: 'upi' }
-            ];
-
             const transactionList = document.getElementById('transaction-list');
-            transactionList.innerHTML = '';
+            transactionList.innerHTML = ''; // Clear existing list
 
-            transactions.forEach(transaction => {
+            transactions.forEach((transaction, index) => {
                 const row = document.createElement('tr');
                 row.innerHTML = `
-                    <td>${formatDateToDMY(transaction.date)}</td>
+                    <td>${formatTransactionDate(transaction.date)}</td>
                     <td>${transaction.type}</td>
                     <td>${transaction.category}</td>
                     <td>${transaction.description}</td>
-                    <td>₹${transaction.amount}</td>
+                    <td>₹${transaction.amount.toFixed(2)}</td>
                     <td>${transaction.mode}</td>
-                    <td><button class="delete-btn">Delete</button></td>
+                    <td>
+                        <button class="add-btn" onclick="editTransaction(${index})">Edit</button>
+                        <button class="delete-btn" onclick="deleteTransaction(${index})">Delete</button>
+                    </td>
                 `;
                 transactionList.appendChild(row);
             });
         }
 
-        renderTransactions();
-    </script>
+        function clearForm() {
+            document.getElementById('description').value = '';
+            amountInput.value = '';
+            addTransactionButton.disabled = true;
+        }
 
+        function deleteTransaction(index) {
+            transactions.splice(index, 1);
+            localStorage.setItem('transactions', JSON.stringify(transactions));
+            renderTransactions();
+        }
+
+        addTransactionButton.addEventListener('click', addTransaction);
+
+        renderTransactions(); // Initial render of transactions
+
+        // Filter transactions
+        const filterTypeSelect = document.getElementById('filter-type');
+        const filterSubtypeSelect = document.getElementById('filter-subtype');
+
+        function populateFilterSubtypes() {
+            const selectedFilterType = filterTypeSelect.value;
+            filterSubtypeSelect.innerHTML = ''; // Clear previous options
+
+            const options = selectedFilterType === 'income' ? incomeOptions : expenseOptions;
+            options.forEach(option => {
+                const opt = document.createElement('option');
+                opt.value = option.value;
+                opt.textContent = option.label;
+                filterSubtypeSelect.appendChild(opt);
+            });
+
+            // Add 'All' option at the beginning
+            const allOption = document.createElement('option');
+            allOption.value = 'all';
+            allOption.textContent = 'All';
+            filterSubtypeSelect.insertBefore(allOption, filterSubtypeSelect.firstChild);
+        }
+
+        filterTypeSelect.addEventListener('change', populateFilterSubtypes);
+        populateFilterSubtypes(); // Initial population
+
+        function filterTransactions() {
+            const fromDate = document.getElementById('from-date').value;
+            const toDate = document.getElementById('to-date').value;
+            const filterType = filterTypeSelect.value;
+            const filterSubtype = filterSubtypeSelect.value;
+
+            const filteredTransactions = transactions.filter(transaction => {
+                const transactionDate = new Date(transaction.date);
+                const isWithinDateRange =
+                    (!fromDate || new Date(fromDate) <= transactionDate) &&
+                    (!toDate || new Date(toDate) >= transactionDate);
+                const matchesType = filterType === 'all' || transaction.type === filterType;
+                const matchesSubtype = filterSubtype === 'all' || transaction.category === filterSubtype;
+                return isWithinDateRange && matchesType && matchesSubtype;
+            });
+
+            const transactionList = document.getElementById('transaction-list');
+            transactionList.innerHTML = ''; // Clear existing list
+
+            filteredTransactions.forEach((transaction, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${formatTransactionDate(transaction.date)}</td>
+                    <td>${transaction.type}</td>
+                    <td>${transaction.category}</td>
+                    <td>${transaction.description}</td>
+                    <td>₹${transaction.amount.toFixed(2)}</td>
+                    <td>${transaction.mode}</td>
+                    <td>
+                        <button class="add-btn" onclick="editTransaction(${index})">Edit</button>
+                        <button class="delete-btn" onclick="deleteTransaction(${index})">Delete</button>
+                    </td>
+                `;
+                transactionList.appendChild(row);
+            });
+        }
+
+        document.getElementById('filter-transactions').addEventListener('click', filterTransactions);
+
+        // Download as PDF or Excel
+        document.getElementById('download-btn').addEventListener('click', () => {
+            const format = prompt('Download as "PDF" or "Excel"?').toLowerCase();
+            const defaultFileName = `${companyName} - ${today}`;
+            const fileName = prompt('Enter file name:', defaultFileName) || defaultFileName;
+
+            if (format === 'pdf') {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                doc.text('Transactions', 10, 10);
+                doc.autoTable({ html: '#transaction-table' });
+                doc.save(`${fileName}.pdf`);
+            } else if (format === 'excel') {
+                const wb = XLSX.utils.book_new();
+                const ws = XLSX.utils.table_to_sheet(document.getElementById('transaction-table'));
+                XLSX.utils.book_append_sheet(wb, ws, 'Transactions');
+                XLSX.writeFile(wb, `${fileName}.xlsx`);
+            } else {
+                alert('Invalid format selected.');
+            }
+        });
+
+        // Edit company name
+        document.querySelector('.edit-heading').addEventListener('click', () => {
+            const newCompanyName = prompt('Enter new company name:', companyName);
+            if (newCompanyName) {
+                companyName = newCompanyName;
+                document.getElementById('main-heading').textContent = companyName;
+            }
+        });
+    </script>
 </body>
 </html>
 
