@@ -37,7 +37,7 @@
         }
         .input-group {
             width: 100%;
-            margin-bottom: 10px;
+            margin-bottom: 20px;
             position: relative;
         }
         .input-group input, .input-group select {
@@ -51,10 +51,8 @@
             display: block;
             margin-bottom: 5px;
             font-weight: bold;
-            position: absolute;
-            top: -10px;
-            left: 5px;
             font-size: 0.9em;
+            text-align: left;
         }
         .totals-container {
             text-align: left;
@@ -113,10 +111,14 @@
             gap: 10px;
             margin-bottom: 15px;
             align-items: center;
+            flex-wrap: wrap;
         }
         .filter-container label {
             margin: 0; /* Ensure labels have no additional margin */
             font-weight: normal; /* Optional: Change label weight for filters */
+            display: block; /* Keep the labels on top of the inputs */
+            flex: 0 0 100px; /* Fixed width for alignment */
+            text-align: left; /* Align text to the left */
         }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
@@ -243,14 +245,16 @@
 
         function populateIncomeExpenseOptions() {
             const selectedTransactionType = transactionTypeSelect.value;
-            incomeExpenseTypeSelect.innerHTML = ''; 
-            const optionsToAdd = selectedTransactionType === 'income' ? incomeOptions : expenseOptions;
-            optionsToAdd.forEach(option => {
+            incomeExpenseTypeSelect.innerHTML = '';
+            const options = selectedTransactionType === 'income' ? incomeOptions : expenseOptions;
+
+            options.forEach(option => {
                 const optElement = document.createElement('option');
                 optElement.value = option.value;
                 optElement.textContent = option.label.charAt(0).toUpperCase() + option.label.slice(1);
                 incomeExpenseTypeSelect.appendChild(optElement);
             });
+
             if (selectedTransactionType === 'all') {
                 incomeExpenseTypeSelect.innerHTML = ''; 
             }
