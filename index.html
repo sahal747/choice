@@ -295,7 +295,6 @@
             document.getElementById('description').value = '';
             document.getElementById('amount').value = '';
             document.getElementById('transaction-mode').value = 'cash';
-            document.getElementById('add-transaction').disabled = true; 
         }
 
         function toggleAddButton() {
@@ -312,7 +311,7 @@
             transactions.forEach((transaction, index) => {
                 const row = document.createElement('tr');
                 row.innerHTML = `
-                    <td>${transaction.date}</td>
+                    <td>${transaction.date.split('-').reverse().join('-')}</td>
                     <td>${transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1)}</td>
                     <td>${transaction.subtype.charAt(0).toUpperCase() + transaction.subtype.slice(1)}</td>
                     <td>${transaction.description}</td>
@@ -363,7 +362,7 @@
 
             transactions.forEach(transaction => {
                 let transactionData = [
-                    transaction.date,
+                    transaction.date.split('-').reverse().join('-'),
                     transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1),
                     transaction.subtype.charAt(0).toUpperCase() + transaction.subtype.slice(1),
                     transaction.description,
@@ -374,14 +373,14 @@
             });
 
             doc.autoTable(tableColumn, tableRows);
-            doc.save(`${companyName}_transactions.pdf`);
+            doc.save(`${companyName}_${new Date().toLocaleDateString().replace(/\//g, '-')}_transactions.pdf`);
         }
 
         function downloadExcel() {
             const worksheet = XLSX.utils.json_to_sheet(transactions);
             const workbook = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(workbook, worksheet, 'Transactions');
-            XLSX.writeFile(workbook, `${companyName}_transactions.xlsx`);
+            XLSX.writeFile(workbook, `${companyName}_${new Date().toLocaleDateString().replace(/\//g, '-')}_transactions.xlsx`);
         }
 
         updateTransactionList();
@@ -389,4 +388,3 @@
     </script>
 </body>
 </html>
-
