@@ -112,6 +112,11 @@
             display: flex;
             gap: 10px;
             margin-bottom: 15px;
+            align-items: center;
+        }
+        .filter-container label {
+            margin: 0; /* Ensure labels have no additional margin */
+            font-weight: normal; /* Optional: Change label weight for filters */
         }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
@@ -243,9 +248,12 @@
             optionsToAdd.forEach(option => {
                 const optElement = document.createElement('option');
                 optElement.value = option.value;
-                optElement.textContent = option.label;
+                optElement.textContent = option.label.charAt(0).toUpperCase() + option.label.slice(1);
                 incomeExpenseTypeSelect.appendChild(optElement);
             });
+            if (selectedTransactionType === 'all') {
+                incomeExpenseTypeSelect.innerHTML = ''; 
+            }
         }
 
         transactionTypeSelect.addEventListener('change', populateIncomeExpenseOptions);
@@ -399,5 +407,4 @@
     </script>
 </body>
 </html>
-
 
