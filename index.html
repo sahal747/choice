@@ -30,6 +30,8 @@
             right: -25px;
             top: 10px;
             cursor: pointer;
+            font-size: 0.9em;
+            color: #007bff;
         }
         .edit-company-name {
             display: none;
@@ -261,7 +263,7 @@
             editCompanyNameInput.focus();
         });
 
-        // Save the new company name to localStorage when changed
+        // Save the edited company name on blur
         editCompanyNameInput.addEventListener('blur', () => {
             companyName = editCompanyNameInput.value;
             mainHeading.textContent = companyName;
@@ -421,6 +423,7 @@
     </script>
 </body>
 </html>
+
 
 
 
