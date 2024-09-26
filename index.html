@@ -106,19 +106,29 @@
             justify-content: space-between;
             margin-top: 10px;
         }
+
+        /* Updated Filter Container CSS */
         .filter-container {
-            display: flex;
-            gap: 10px;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr); /* 4 equal columns */
+            gap: 20px;
             margin-bottom: 15px;
-            align-items: center;
-            flex-wrap: wrap;
         }
+
         .filter-container label {
-            margin: 0;
-            font-weight: normal;
             display: block;
-            flex: 0 0 100px;
-            text-align: left;
+            margin-bottom: 5px;
+            font-weight: bold;
+            text-align: left; /* Align label to the start */
+        }
+
+        .filter-container input,
+        .filter-container select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
         }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
@@ -131,7 +141,7 @@
         <div class="form-container">
             <div class="input-group">
                 <label for="date-input">Date:</label>
-                <input type="date" id="date-input">
+                <input type="date" id="date-input" value="${new Date().toISOString().split('T')[0]}">
             </div>
             <div class="input-group">
                 <label for="transaction-type">Transaction Type:</label>
@@ -204,13 +214,12 @@
             </select>
             <button id="filter-transactions" class="add-btn">Show</button>
         </div>
-        <table id="transaction-table">
+        <table>
             <thead>
                 <tr>
                     <th>Date</th>
-                    <th>Type of Transaction</th>
-                    <th>Income Type</th>
-                    <th>Expense Type</th>
+                    <th>Type</th>
+                    <th>Subtype</th>
                     <th>Description</th>
                     <th>Amount</th>
                     <th>Mode</th>
@@ -223,191 +232,167 @@
 
     <script>
         const transactionList = JSON.parse(localStorage.getItem('transactions')) || [];
+        const transactionListEl = document.getElementById('transaction-list');
         const totalIncomeEl = document.getElementById('total-income');
         const totalExpenseEl = document.getElementById('total-expense');
         const balanceEl = document.getElementById('balance');
-        const transactionTable = document.getElementById('transaction-table');
-        const transactionFilter = document.getElementById('transaction-filter');
-        const subtypeFilter = document.getElementById('subtype-filter');
-        const fromDateInput = document.getElementById('from-date');
-        const toDateInput = document.getElementById('to-date');
+        const addTransactionButton = document.getElementById('add-transaction');
         const transactionTypeSelect = document.getElementById('transaction-type');
         const incomeExpenseTypeSelect = document.getElementById('income-expense-type');
-        const addTransactionButton = document.getElementById('add-transaction');
         const clearAllButton = document.getElementById('clear-all');
         const exportButton = document.getElementById('export');
+        const fromDateInput = document.getElementById('from-date');
+        const toDateInput = document.getElementById('to-date');
+        const transactionFilter = document.getElementById('transaction-filter');
+        const subtypeFilter = document.getElementById('subtype-filter');
+        const headingEdit = document.querySelector('.edit-heading');
+        const mainHeading = document.getElementById('main-heading');
 
-        function loadTransactions() {
-            const transactionListEl = document.getElementById('transaction-list');
+        function toggleAddButton() {
+            const amount = document.getElementById('amount').value;
+            addTransactionButton.disabled = !amount;
+        }
+
+        function moveToNextInput(nextFieldId) {
+            document.getElementById(nextFieldId).focus();
+        }
+
+        function addTransaction() {
+            const date = document.getElementById('date-input').value;
+            const type = transactionTypeSelect.value;
+            const subtype = incomeExpenseTypeSelect.value;
+            const description = document.getElementById('description').value;
+            const amount = parseFloat(document.getElementById('amount').value);
+            const mode = document.getElementById('transaction-mode').value;
+
+            if (!amount) {
+                alert('Please fill the amount section.');
+                return;
+            }
+
+            const transaction = { date, type, subtype, description, amount, mode };
+            transactionList.push(transaction);
+            localStorage.setItem('transactions', JSON.stringify(transactionList));
+            document.getElementById('amount').value = '';
+            toggleAddButton();
+            renderTransactions();
+        }
+
+        function renderTransactions(filterFrom, filterTo) {
             transactionListEl.innerHTML = '';
-            transactionList.forEach((transaction, index) => {
+            let totalIncome = 0;
+            let totalExpense = 0;
+
+            const filteredTransactions = transactionList.filter(transaction => {
+                const transactionDate = new Date(transaction.date);
+                return (!filterFrom || transactionDate >= new Date(filterFrom)) &&
+                       (!filterTo || transactionDate <= new Date(filterTo));
+            });
+
+            filteredTransactions.forEach((transaction, index) => {
                 const row = document.createElement('tr');
                 row.innerHTML = `
-                    <td>${new Date(transaction.date).toLocaleDateString()}</td>
+                    <td>${transaction.date}</td>
                     <td>${transaction.type}</td>
-                    <td>${transaction.type === 'income' ? transaction.incomeType : ''}</td>
-                    <td>${transaction.type === 'expense' ? transaction.expenseType : ''}</td>
+                    <td>${transaction.subtype}</td>
                     <td>${transaction.description}</td>
                     <td>₹${transaction.amount.toFixed(2)}</td>
                     <td>${transaction.mode}</td>
                     <td>
-                        <button onclick="editTransaction(${index})" style="background-color: green; color: white;">Edit</button>
-                        <button onclick="deleteTransaction(${index})" style="background-color: red; color: white;">Delete</button>
+                        <button class="edit-btn" onclick="editTransaction(${index})">Edit</button>
+                        <button class="delete-btn" onclick="deleteTransaction(${index})">Delete</button>
                     </td>
                 `;
                 transactionListEl.appendChild(row);
-            });
-            updateTotals();
-        }
-
-        function updateTotals() {
-            const totals = transactionList.reduce((acc, transaction) => {
                 if (transaction.type === 'income') {
-                    acc.income += transaction.amount;
+                    totalIncome += transaction.amount;
                 } else {
-                    acc.expense += transaction.amount;
+                    totalExpense += transaction.amount;
                 }
-                return acc;
-            }, { income: 0, expense: 0 });
-            totalIncomeEl.textContent = totals.income.toFixed(2);
-            totalExpenseEl.textContent = totals.expense.toFixed(2);
-            balanceEl.textContent = (totals.income - totals.expense).toFixed(2);
-        }
+            });
 
-        function addTransaction() {
-            const dateInput = document.getElementById('date-input').value;
-            const transactionType = transactionTypeSelect.value;
-            const incomeType = transactionType === 'income' ? incomeExpenseTypeSelect.value : '';
-            const expenseType = transactionType === 'expense' ? incomeExpenseTypeSelect.value : '';
-            const description = document.getElementById('description').value.trim();
-            const amount = parseFloat(document.getElementById('amount').value);
-            const mode = document.getElementById('transaction-mode').value;
-
-            if (!description) {
-                alert("Please enter a description.");
-                return;
-            }
-            if (amount <= 0) {
-                alert("Please enter a valid amount.");
-                return;
-            }
-
-            const newTransaction = {
-                date: dateInput,
-                type: transactionType,
-                incomeType: incomeType,
-                expenseType: expenseType,
-                description: description,
-                amount: amount,
-                mode: mode,
-            };
-
-            transactionList.push(newTransaction);
-            localStorage.setItem('transactions', JSON.stringify(transactionList));
-            loadTransactions();
-            clearInputs();
+            totalIncomeEl.innerText = totalIncome.toFixed(2);
+            totalExpenseEl.innerText = totalExpense.toFixed(2);
+            balanceEl.innerText = (totalIncome - totalExpense).toFixed(2);
         }
 
         function editTransaction(index) {
             const transaction = transactionList[index];
             document.getElementById('date-input').value = transaction.date;
             transactionTypeSelect.value = transaction.type;
-            incomeExpenseTypeSelect.value = transaction.type === 'income' ? transaction.incomeType : transaction.expenseType;
+            incomeExpenseTypeSelect.value = transaction.subtype;
             document.getElementById('description').value = transaction.description;
             document.getElementById('amount').value = transaction.amount;
             document.getElementById('transaction-mode').value = transaction.mode;
+            addTransactionButton.onclick = function () {
+                updateTransaction(index);
+            };
+        }
 
-            // Remove the transaction from the list for editing
-            transactionList.splice(index, 1);
+        function updateTransaction(index) {
+            const date = document.getElementById('date-input').value;
+            const type = transactionTypeSelect.value;
+            const subtype = incomeExpenseTypeSelect.value;
+            const description = document.getElementById('description').value;
+            const amount = parseFloat(document.getElementById('amount').value);
+            const mode = document.getElementById('transaction-mode').value;
+
+            transactionList[index] = { date, type, subtype, description, amount, mode };
             localStorage.setItem('transactions', JSON.stringify(transactionList));
-            loadTransactions();
+            document.getElementById('amount').value = '';
+            toggleAddButton();
+            renderTransactions();
+            addTransactionButton.onclick = addTransaction; // Reset button action
         }
 
         function deleteTransaction(index) {
             if (confirm('Are you sure you want to delete this transaction?')) {
                 transactionList.splice(index, 1);
                 localStorage.setItem('transactions', JSON.stringify(transactionList));
-                loadTransactions();
+                renderTransactions();
             }
         }
 
-        function clearAll() {
-            if (confirm('Are you sure you want to proceed?')) {
+        clearAllButton.onclick = function() {
+            if (confirm('Are you sure you want to clear all transactions?')) {
                 localStorage.removeItem('transactions');
-                loadTransactions();
+                transactionList.length = 0; // Clear the array
+                renderTransactions();
             }
-        }
+        };
 
-        function exportTransactions() {
-            const ws = XLSX.utils.json_to_sheet(transactionList);
+        exportButton.onclick = function() {
             const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Transactions");
-            const fileName = document.getElementById('main-heading').textContent + " - " + new Date().toISOString().split('T')[0] + ".xlsx";
-            XLSX.writeFile(wb, fileName);
-        }
+            const ws = XLSX.utils.json_to_sheet(transactionList);
+            XLSX.utils.book_append_sheet(wb, ws, 'Transactions');
+            XLSX.writeFile(wb, `${document.getElementById('main-heading').innerText} - ${new Date().toLocaleDateString()}.xlsx`);
+        };
 
-        function clearInputs() {
-            document.getElementById('date-input').value = new Date().toISOString().split('T')[0];
-            document.getElementById('description').value = '';
-            document.getElementById('amount').value = '';
-            document.getElementById('transaction-mode').value = 'cash';
-            transactionTypeSelect.value = 'income';
-            incomeExpenseTypeSelect.value = 'sales';
-            toggleAddButton();
-            loadTransactions();
-        }
-
-        function toggleAddButton() {
-            const amount = parseFloat(document.getElementById('amount').value);
-            const description = document.getElementById('description').value.trim();
-            addTransactionButton.disabled = !description || amount <= 0;
-        }
-
-        function moveToNextInput(nextInputId) {
-            document.getElementById(nextInputId).focus();
-        }
-
-        transactionTypeSelect.addEventListener('change', () => {
-            if (transactionTypeSelect.value === 'income') {
-                incomeExpenseTypeSelect.innerHTML = `
-                    <option value="sales">Sales</option>
-                    <option value="other">Other</option>
-                `;
-            } else {
-                incomeExpenseTypeSelect.innerHTML = `
-                    <option value="salary">Salary</option>
-                    <option value="vendor">Vendor</option>
-                    <option value="food">Food</option>
-                    <option value="fuel">Fuel</option>
-                    <option value="other">Other</option>
-                `;
+        headingEdit.onclick = function() {
+            const newHeading = prompt('Enter new company name:', mainHeading.innerText);
+            if (newHeading) {
+                mainHeading.innerText = newHeading;
+                localStorage.setItem('companyName', newHeading);
             }
-        });
+        };
 
-        transactionFilter.addEventListener('change', () => {
-            loadTransactions();
-        });
+        function applyFilters() {
+            const fromDate = fromDateInput.value;
+            const toDate = toDateInput.value;
+            renderTransactions(fromDate, toDate);
+        }
 
-        subtypeFilter.addEventListener('change', () => {
-            loadTransactions();
-        });
+        fromDateInput.addEventListener('change', applyFilters);
+        toDateInput.addEventListener('change', applyFilters);
+        transactionFilter.addEventListener('change', applyFilters);
+        subtypeFilter.addEventListener('change', applyFilters);
+        document.getElementById('filter-transactions').onclick = applyFilters;
 
-        fromDateInput.addEventListener('change', loadTransactions);
-        toDateInput.addEventListener('change', loadTransactions);
-        
-        filterTransactions.addEventListener('click', () => {
-            loadTransactions();
-        });
-
-        clearAllButton.addEventListener('click', clearAll);
-        exportButton.addEventListener('click', exportTransactions);
-
-        // Initial load
-        loadTransactions();
+        // Render transactions on load
+        renderTransactions();
     </script>
 </body>
 </html>
-
 
 
 
