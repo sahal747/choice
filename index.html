@@ -108,20 +108,17 @@
         }
         .filter-container {
             display: flex;
-            gap: 20px;
+            gap: 10px;
             margin-bottom: 15px;
-            align-items: flex-start;
+            align-items: center;
             flex-wrap: wrap;
         }
-        .filter-item {
-            display: flex;
-            flex-direction: column; /* Arrange labels above inputs */
-            margin-bottom: 10px;
-            flex: 1;
-        }
-        .filter-item label {
+        .filter-container label {
+            margin: 0;
             font-weight: normal;
-            margin-bottom: 5px;
+            display: block;
+            flex: 0 0 100px;
+            text-align: left;
         }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
@@ -185,44 +182,35 @@
     <div class="transactions-container">
         <h3>Transactions</h3>
         <div class="filter-container">
-            <div class="filter-item">
-                <label for="from-date">From:</label>
-                <input type="date" id="from-date">
-            </div>
-            <div class="filter-item">
-                <label for="to-date">To:</label>
-                <input type="date" id="to-date">
-            </div>
-            <div class="filter-item">
-                <label for="transaction-filter">Type:</label>
-                <select id="transaction-filter">
-                    <option value="all">All</option>
-                    <option value="income">Income</option>
-                    <option value="expense">Expense</option>
-                </select>
-            </div>
-            <div class="filter-item">
-                <label for="subtype-filter">Category:</label>
-                <select id="subtype-filter">
-                    <option value="">All</option>
-                    <option value="sales">Sales</option>
-                    <option value="other">Other</option>
-                    <option value="salary">Salary</option>
-                    <option value="vendor">Vendor</option>
-                    <option value="food">Food</option>
-                    <option value="fuel">Fuel</option>
-                </select>
-            </div>
-            <div class="filter-item">
-                <button id="filter-transactions" class="add-btn">Show</button>
-            </div>
+            <label for="from-date">From:</label>
+            <input type="date" id="from-date">
+            <label for="to-date">To:</label>
+            <input type="date" id="to-date">
+            <label for="transaction-filter">Filter:</label>
+            <select id="transaction-filter">
+                <option value="all">All</option>
+                <option value="income">Income</option>
+                <option value="expense">Expense</option>
+            </select>
+            <label for="subtype-filter">Type:</label>
+            <select id="subtype-filter">
+                <option value="">All</option>
+                <option value="sales">Sales</option>
+                <option value="other">Other</option>
+                <option value="salary">Salary</option>
+                <option value="vendor">Vendor</option>
+                <option value="food">Food</option>
+                <option value="fuel">Fuel</option>
+            </select>
+            <button id="filter-transactions" class="add-btn">Show</button>
         </div>
         <table id="transaction-table">
             <thead>
                 <tr>
                     <th>Date</th>
-                    <th>Type</th>
-                    <th>Category</th>
+                    <th>Type of Transaction</th>
+                    <th>Income Type</th>
+                    <th>Expense Type</th>
                     <th>Description</th>
                     <th>Amount</th>
                     <th>Mode</th>
@@ -234,130 +222,191 @@
     </div>
 
     <script>
-        const dateInput = document.getElementById('date-input');
-        const today = new Date().toISOString().split('T')[0];
-        dateInput.value = today;
-
-        let transactions = JSON.parse(localStorage.getItem('transactions')) || [];
-        let companyName = "Company Name";
-
+        const transactionList = JSON.parse(localStorage.getItem('transactions')) || [];
+        const totalIncomeEl = document.getElementById('total-income');
+        const totalExpenseEl = document.getElementById('total-expense');
+        const balanceEl = document.getElementById('balance');
+        const transactionTable = document.getElementById('transaction-table');
+        const transactionFilter = document.getElementById('transaction-filter');
+        const subtypeFilter = document.getElementById('subtype-filter');
+        const fromDateInput = document.getElementById('from-date');
+        const toDateInput = document.getElementById('to-date');
         const transactionTypeSelect = document.getElementById('transaction-type');
         const incomeExpenseTypeSelect = document.getElementById('income-expense-type');
-
-        const incomeOptions = [
-            { value: 'sales', label: 'Sales' },
-            { value: 'other', label: 'Other' }
-        ];
-        const expenseOptions = [
-            { value: 'salary', label: 'Salary' },
-            { value: 'vendor', label: 'Vendor' },
-            { value: 'food', label: 'Food' },
-            { value: 'fuel', label: 'Fuel' },
-            { value: 'other', label: 'Other' }
-        ];
-
-        transactionTypeSelect.addEventListener('change', updateIncomeExpenseOptions);
-
-        function updateIncomeExpenseOptions() {
-            const selectedType = transactionTypeSelect.value;
-            incomeExpenseTypeSelect.innerHTML = '';
-
-            const options = selectedType === 'income' ? incomeOptions : expenseOptions;
-
-            options.forEach(option => {
-                const opt = document.createElement('option');
-                opt.value = option.value;
-                opt.textContent = option.label;
-                incomeExpenseTypeSelect.appendChild(opt);
-            });
-        }
-
-        updateIncomeExpenseOptions();
-
         const addTransactionButton = document.getElementById('add-transaction');
-        const descriptionInput = document.getElementById('description');
-        const amountInput = document.getElementById('amount');
+        const clearAllButton = document.getElementById('clear-all');
+        const exportButton = document.getElementById('export');
 
-        function toggleAddButton() {
-            const amount = parseFloat(amountInput.value);
-            addTransactionButton.disabled = !amount || amount <= 0;
-        }
-
-        addTransactionButton.addEventListener('click', addTransaction);
-
-        function addTransaction() {
-            const date = dateInput.value;
-            const type = transactionTypeSelect.value;
-            const category = incomeExpenseTypeSelect.value;
-            const description = descriptionInput.value.trim();
-            const amount = parseFloat(amountInput.value);
-            const mode = document.getElementById('transaction-mode').value;
-
-            if (!description || !amount) {
-                alert('Please enter description and amount');
-                return;
-            }
-
-            const transaction = { date, type, category, description, amount, mode };
-            transactions.push(transaction);
-
-            localStorage.setItem('transactions', JSON.stringify(transactions));
-
-            renderTransactions();
-            updateTotals();
-
-            descriptionInput.value = '';
-            amountInput.value = '';
-            toggleAddButton();
-        }
-
-        function renderTransactions() {
-            const transactionList = document.getElementById('transaction-list');
-            transactionList.innerHTML = '';
-
-            transactions.forEach((transaction, index) => {
+        function loadTransactions() {
+            const transactionListEl = document.getElementById('transaction-list');
+            transactionListEl.innerHTML = '';
+            transactionList.forEach((transaction, index) => {
                 const row = document.createElement('tr');
                 row.innerHTML = `
-                    <td>${transaction.date}</td>
-                    <td>${transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1)}</td>
-                    <td>${transaction.category.charAt(0).toUpperCase() + transaction.category.slice(1)}</td>
+                    <td>${new Date(transaction.date).toLocaleDateString()}</td>
+                    <td>${transaction.type}</td>
+                    <td>${transaction.type === 'income' ? transaction.incomeType : ''}</td>
+                    <td>${transaction.type === 'expense' ? transaction.expenseType : ''}</td>
                     <td>${transaction.description}</td>
                     <td>₹${transaction.amount.toFixed(2)}</td>
-                    <td>${transaction.mode.toUpperCase()}</td>
-                    <td><button onclick="deleteTransaction(${index})" class="delete-btn">Delete</button></td>
+                    <td>${transaction.mode}</td>
+                    <td>
+                        <button onclick="editTransaction(${index})" style="background-color: green; color: white;">Edit</button>
+                        <button onclick="deleteTransaction(${index})" style="background-color: red; color: white;">Delete</button>
+                    </td>
                 `;
-                transactionList.appendChild(row);
+                transactionListEl.appendChild(row);
             });
+            updateTotals();
         }
 
         function updateTotals() {
-            const totalIncome = transactions
-                .filter(t => t.type === 'income')
-                .reduce((sum, t) => sum + t.amount, 0);
-            const totalExpense = transactions
-                .filter(t => t.type === 'expense')
-                .reduce((sum, t) => sum + t.amount, 0);
+            const totals = transactionList.reduce((acc, transaction) => {
+                if (transaction.type === 'income') {
+                    acc.income += transaction.amount;
+                } else {
+                    acc.expense += transaction.amount;
+                }
+                return acc;
+            }, { income: 0, expense: 0 });
+            totalIncomeEl.textContent = totals.income.toFixed(2);
+            totalExpenseEl.textContent = totals.expense.toFixed(2);
+            balanceEl.textContent = (totals.income - totals.expense).toFixed(2);
+        }
 
-            document.getElementById('total-income').textContent = totalIncome.toFixed(2);
-            document.getElementById('total-expense').textContent = totalExpense.toFixed(2);
-            document.getElementById('balance').textContent = (totalIncome - totalExpense).toFixed(2);
+        function addTransaction() {
+            const dateInput = document.getElementById('date-input').value;
+            const transactionType = transactionTypeSelect.value;
+            const incomeType = transactionType === 'income' ? incomeExpenseTypeSelect.value : '';
+            const expenseType = transactionType === 'expense' ? incomeExpenseTypeSelect.value : '';
+            const description = document.getElementById('description').value.trim();
+            const amount = parseFloat(document.getElementById('amount').value);
+            const mode = document.getElementById('transaction-mode').value;
+
+            if (!description) {
+                alert("Please enter a description.");
+                return;
+            }
+            if (amount <= 0) {
+                alert("Please enter a valid amount.");
+                return;
+            }
+
+            const newTransaction = {
+                date: dateInput,
+                type: transactionType,
+                incomeType: incomeType,
+                expenseType: expenseType,
+                description: description,
+                amount: amount,
+                mode: mode,
+            };
+
+            transactionList.push(newTransaction);
+            localStorage.setItem('transactions', JSON.stringify(transactionList));
+            loadTransactions();
+            clearInputs();
+        }
+
+        function editTransaction(index) {
+            const transaction = transactionList[index];
+            document.getElementById('date-input').value = transaction.date;
+            transactionTypeSelect.value = transaction.type;
+            incomeExpenseTypeSelect.value = transaction.type === 'income' ? transaction.incomeType : transaction.expenseType;
+            document.getElementById('description').value = transaction.description;
+            document.getElementById('amount').value = transaction.amount;
+            document.getElementById('transaction-mode').value = transaction.mode;
+
+            // Remove the transaction from the list for editing
+            transactionList.splice(index, 1);
+            localStorage.setItem('transactions', JSON.stringify(transactionList));
+            loadTransactions();
         }
 
         function deleteTransaction(index) {
             if (confirm('Are you sure you want to delete this transaction?')) {
-                transactions.splice(index, 1);
-                localStorage.setItem('transactions', JSON.stringify(transactions));
-                renderTransactions();
-                updateTotals();
+                transactionList.splice(index, 1);
+                localStorage.setItem('transactions', JSON.stringify(transactionList));
+                loadTransactions();
             }
         }
 
-        renderTransactions();
-        updateTotals();
+        function clearAll() {
+            if (confirm('Are you sure you want to proceed?')) {
+                localStorage.removeItem('transactions');
+                loadTransactions();
+            }
+        }
+
+        function exportTransactions() {
+            const ws = XLSX.utils.json_to_sheet(transactionList);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Transactions");
+            const fileName = document.getElementById('main-heading').textContent + " - " + new Date().toISOString().split('T')[0] + ".xlsx";
+            XLSX.writeFile(wb, fileName);
+        }
+
+        function clearInputs() {
+            document.getElementById('date-input').value = new Date().toISOString().split('T')[0];
+            document.getElementById('description').value = '';
+            document.getElementById('amount').value = '';
+            document.getElementById('transaction-mode').value = 'cash';
+            transactionTypeSelect.value = 'income';
+            incomeExpenseTypeSelect.value = 'sales';
+            toggleAddButton();
+            loadTransactions();
+        }
+
+        function toggleAddButton() {
+            const amount = parseFloat(document.getElementById('amount').value);
+            const description = document.getElementById('description').value.trim();
+            addTransactionButton.disabled = !description || amount <= 0;
+        }
+
+        function moveToNextInput(nextInputId) {
+            document.getElementById(nextInputId).focus();
+        }
+
+        transactionTypeSelect.addEventListener('change', () => {
+            if (transactionTypeSelect.value === 'income') {
+                incomeExpenseTypeSelect.innerHTML = `
+                    <option value="sales">Sales</option>
+                    <option value="other">Other</option>
+                `;
+            } else {
+                incomeExpenseTypeSelect.innerHTML = `
+                    <option value="salary">Salary</option>
+                    <option value="vendor">Vendor</option>
+                    <option value="food">Food</option>
+                    <option value="fuel">Fuel</option>
+                    <option value="other">Other</option>
+                `;
+            }
+        });
+
+        transactionFilter.addEventListener('change', () => {
+            loadTransactions();
+        });
+
+        subtypeFilter.addEventListener('change', () => {
+            loadTransactions();
+        });
+
+        fromDateInput.addEventListener('change', loadTransactions);
+        toDateInput.addEventListener('change', loadTransactions);
+        
+        filterTransactions.addEventListener('click', () => {
+            loadTransactions();
+        });
+
+        clearAllButton.addEventListener('click', clearAll);
+        exportButton.addEventListener('click', exportTransactions);
+
+        // Initial load
+        loadTransactions();
     </script>
 </body>
 </html>
-
 
 
 
