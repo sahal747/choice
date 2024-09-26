@@ -31,12 +31,6 @@
             top: 10px;
             cursor: pointer;
         }
-        .edit-company-name {
-            display: none;
-            margin: 0 auto;
-            padding: 5px;
-            font-size: 1em;
-        }
         .form-container, .totals-container {
             width: 100%;
             margin-bottom: 20px;
@@ -121,7 +115,7 @@
         }
         .filter-item {
             display: flex;
-            flex-direction: column;
+            flex-direction: column; /* Arrange labels above inputs */
             margin-bottom: 10px;
             flex: 1;
         }
@@ -136,7 +130,6 @@
 
     <div class="container">
         <h1 id="main-heading">Company Name <span class="edit-heading">✏️</span></h1>
-        <input type="text" id="edit-company-name" class="edit-company-name" placeholder="Enter company name">
 
         <div class="form-container">
             <div class="input-group">
@@ -159,11 +152,11 @@
             </div>
             <div class="input-group">
                 <label for="description">Description:</label>
-                <input type="text" id="description" placeholder="Enter description">
+                <input type="text" id="description" placeholder="Enter description" onkeypress="if(event.key === 'Enter'){event.preventDefault(); moveToNextInput('amount');}">
             </div>
             <div class="input-group">
                 <label for="amount">Amount:</label>
-                <input type="number" id="amount" placeholder="Enter amount" oninput="toggleAddButton()">
+                <input type="number" id="amount" placeholder="Enter amount" oninput="toggleAddButton()" onkeypress="if(event.key === 'Enter'){event.preventDefault(); addTransaction();}">
             </div>
             <div class="input-group">
                 <label for="transaction-mode">Mode of Transaction:</label>
@@ -246,34 +239,11 @@
         dateInput.value = today;
 
         let transactions = JSON.parse(localStorage.getItem('transactions')) || [];
-
-        const mainHeading = document.getElementById('main-heading');
-        const editCompanyNameInput = document.getElementById('edit-company-name');
-        const editHeadingBtn = document.querySelector('.edit-heading');
-
-        // Load the company name from localStorage
-        let companyName = localStorage.getItem('companyName') || "Company Name";
-        mainHeading.textContent = companyName;
-
-        // Click event to allow editing the company name
-        editHeadingBtn.addEventListener('click', () => {
-            editCompanyNameInput.style.display = 'inline';
-            editCompanyNameInput.value = mainHeading.textContent;
-            editCompanyNameInput.focus();
-        });
-
-        // Save the new company name to localStorage when changed
-        editCompanyNameInput.addEventListener('blur', () => {
-            const newName = editCompanyNameInput.value.trim();
-            if (newName) {
-                mainHeading.textContent = newName;
-                localStorage.setItem('companyName', newName);
-            }
-            editCompanyNameInput.style.display = 'none';
-        });
+        let companyName = "Company Name";
 
         const transactionTypeSelect = document.getElementById('transaction-type');
         const incomeExpenseTypeSelect = document.getElementById('income-expense-type');
+
         const incomeOptions = [
             { value: 'sales', label: 'Sales' },
             { value: 'other', label: 'Other' }
@@ -347,7 +317,7 @@
 
             transactions.forEach((transaction, index) => {
                 const row = document.createElement('tr');
-                row.innerHTML = 
+                row.innerHTML = `
                     <td>${transaction.date}</td>
                     <td>${transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1)}</td>
                     <td>${transaction.category.charAt(0).toUpperCase() + transaction.category.slice(1)}</td>
@@ -355,7 +325,7 @@
                     <td>₹${transaction.amount.toFixed(2)}</td>
                     <td>${transaction.mode.toUpperCase()}</td>
                     <td><button onclick="deleteTransaction(${index})" class="delete-btn">Delete</button></td>
-                ;
+                `;
                 transactionList.appendChild(row);
             });
         }
