@@ -141,7 +141,7 @@
         <div class="form-container">
             <div class="input-group">
                 <label for="date-input">Date:</label>
-                <input type="date" id="date-input" value="${new Date().toISOString().split('T')[0]}">
+                <input type="date" id="date-input">
             </div>
             <div class="input-group">
                 <label for="transaction-type">Transaction Type:</label>
@@ -231,79 +231,65 @@
     </div>
 
     <script>
-        const transactionList = JSON.parse(localStorage.getItem('transactions')) || [];
-        const transactionListEl = document.getElementById('transaction-list');
-        const totalIncomeEl = document.getElementById('total-income');
-        const totalExpenseEl = document.getElementById('total-expense');
-        const balanceEl = document.getElementById('balance');
-        const addTransactionButton = document.getElementById('add-transaction');
-        const transactionTypeSelect = document.getElementById('transaction-type');
-        const incomeExpenseTypeSelect = document.getElementById('income-expense-type');
-        const clearAllButton = document.getElementById('clear-all');
-        const exportButton = document.getElementById('export');
-        const fromDateInput = document.getElementById('from-date');
-        const toDateInput = document.getElementById('to-date');
-        const transactionFilter = document.getElementById('transaction-filter');
-        const subtypeFilter = document.getElementById('subtype-filter');
-        const headingEdit = document.querySelector('.edit-heading');
-        const mainHeading = document.getElementById('main-heading');
+        let transactions = [];
+
+        document.getElementById('transaction-type').addEventListener('change', function() {
+            const type = this.value;
+            const incomeExpenseGroup = document.getElementById('income-expense-type-group');
+            if (type === 'income') {
+                incomeExpenseGroup.style.display = 'block';
+                document.getElementById('income-expense-type').value = 'sales'; // Reset to default
+            } else {
+                incomeExpenseGroup.style.display = 'none';
+            }
+        });
+
+        document.getElementById('add-transaction').addEventListener('click', addTransaction);
+        document.getElementById('clear-all').addEventListener('click', clearAll);
+        document.getElementById('export').addEventListener('click', downloadExcel);
+        document.getElementById('filter-transactions').addEventListener('click', filterTransactions);
+        document.getElementById('from-date').addEventListener('change', filterTransactions);
+        document.getElementById('to-date').addEventListener('change', filterTransactions);
 
         function toggleAddButton() {
             const amount = document.getElementById('amount').value;
-            addTransactionButton.disabled = !amount;
-        }
-
-        function moveToNextInput(nextFieldId) {
-            document.getElementById(nextFieldId).focus();
+            document.getElementById('add-transaction').disabled = amount.trim() === '';
         }
 
         function addTransaction() {
             const date = document.getElementById('date-input').value;
-            const type = transactionTypeSelect.value;
-            const subtype = incomeExpenseTypeSelect.value;
+            const type = document.getElementById('transaction-type').value;
+            const subtype = document.getElementById('income-expense-type').value;
             const description = document.getElementById('description').value;
             const amount = parseFloat(document.getElementById('amount').value);
             const mode = document.getElementById('transaction-mode').value;
 
             if (!amount) {
-                alert('Please fill the amount section.');
+                alert("Please fill in the amount section.");
                 return;
             }
 
-            const transaction = { date, type, subtype, description, amount, mode };
-            transactionList.push(transaction);
-            localStorage.setItem('transactions', JSON.stringify(transactionList));
+            transactions.push({ date, type, subtype, description, amount, mode });
+            document.getElementById('description').value = '';
             document.getElementById('amount').value = '';
-            toggleAddButton();
+            document.getElementById('transaction-mode').value = 'cash';
+            updateTotals();
             renderTransactions();
         }
 
-        function renderTransactions(filterFrom, filterTo) {
-            transactionListEl.innerHTML = '';
+        function clearAll() {
+            if (confirm("Are you sure you want to proceed?")) {
+                transactions = [];
+                updateTotals();
+                renderTransactions();
+            }
+        }
+
+        function updateTotals() {
             let totalIncome = 0;
             let totalExpense = 0;
 
-            const filteredTransactions = transactionList.filter(transaction => {
-                const transactionDate = new Date(transaction.date);
-                return (!filterFrom || transactionDate >= new Date(filterFrom)) &&
-                       (!filterTo || transactionDate <= new Date(filterTo));
-            });
-
-            filteredTransactions.forEach((transaction, index) => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>${transaction.date}</td>
-                    <td>${transaction.type}</td>
-                    <td>${transaction.subtype}</td>
-                    <td>${transaction.description}</td>
-                    <td>₹${transaction.amount.toFixed(2)}</td>
-                    <td>${transaction.mode}</td>
-                    <td>
-                        <button class="edit-btn" onclick="editTransaction(${index})">Edit</button>
-                        <button class="delete-btn" onclick="deleteTransaction(${index})">Delete</button>
-                    </td>
-                `;
-                transactionListEl.appendChild(row);
+            transactions.forEach(transaction => {
                 if (transaction.type === 'income') {
                     totalIncome += transaction.amount;
                 } else {
@@ -311,85 +297,95 @@
                 }
             });
 
-            totalIncomeEl.innerText = totalIncome.toFixed(2);
-            totalExpenseEl.innerText = totalExpense.toFixed(2);
-            balanceEl.innerText = (totalIncome - totalExpense).toFixed(2);
+            document.getElementById('total-income').innerText = totalIncome.toFixed(2);
+            document.getElementById('total-expense').innerText = totalExpense.toFixed(2);
+            document.getElementById('balance').innerText = (totalIncome - totalExpense).toFixed(2);
         }
 
-        function editTransaction(index) {
-            const transaction = transactionList[index];
-            document.getElementById('date-input').value = transaction.date;
-            transactionTypeSelect.value = transaction.type;
-            incomeExpenseTypeSelect.value = transaction.subtype;
-            document.getElementById('description').value = transaction.description;
-            document.getElementById('amount').value = transaction.amount;
-            document.getElementById('transaction-mode').value = transaction.mode;
-            addTransactionButton.onclick = function () {
-                updateTransaction(index);
-            };
-        }
+        function renderTransactions() {
+            const transactionList = document.getElementById('transaction-list');
+            transactionList.innerHTML = '';
 
-        function updateTransaction(index) {
-            const date = document.getElementById('date-input').value;
-            const type = transactionTypeSelect.value;
-            const subtype = incomeExpenseTypeSelect.value;
-            const description = document.getElementById('description').value;
-            const amount = parseFloat(document.getElementById('amount').value);
-            const mode = document.getElementById('transaction-mode').value;
-
-            transactionList[index] = { date, type, subtype, description, amount, mode };
-            localStorage.setItem('transactions', JSON.stringify(transactionList));
-            document.getElementById('amount').value = '';
-            toggleAddButton();
-            renderTransactions();
-            addTransactionButton.onclick = addTransaction; // Reset button action
+            transactions.forEach((transaction, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${new Date(transaction.date).toLocaleDateString()}</td>
+                    <td>${transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1)}</td>
+                    <td>${transaction.subtype.charAt(0).toUpperCase() + transaction.subtype.slice(1)}</td>
+                    <td>${transaction.description}</td>
+                    <td>₹${transaction.amount.toFixed(2)}</td>
+                    <td>${transaction.mode.charAt(0).toUpperCase() + transaction.mode.slice(1)}</td>
+                    <td><button class="delete-btn" onclick="deleteTransaction(${index})">Delete</button></td>
+                `;
+                transactionList.appendChild(row);
+            });
         }
 
         function deleteTransaction(index) {
-            if (confirm('Are you sure you want to delete this transaction?')) {
-                transactionList.splice(index, 1);
-                localStorage.setItem('transactions', JSON.stringify(transactionList));
-                renderTransactions();
+            transactions.splice(index, 1);
+            updateTotals();
+            renderTransactions();
+        }
+
+        function filterTransactions() {
+            const fromDate = new Date(document.getElementById('from-date').value);
+            const toDate = new Date(document.getElementById('to-date').value);
+            const typeFilter = document.getElementById('transaction-filter').value;
+            const subtypeFilter = document.getElementById('subtype-filter').value;
+
+            const filteredTransactions = transactions.filter(transaction => {
+                const transactionDate = new Date(transaction.date);
+                const withinDateRange = (isNaN(fromDate) || transactionDate >= fromDate) && (isNaN(toDate) || transactionDate <= toDate);
+                const typeMatch = typeFilter === 'all' || transaction.type === typeFilter;
+                const subtypeMatch = !subtypeFilter || transaction.subtype === subtypeFilter;
+                return withinDateRange && typeMatch && subtypeMatch;
+            });
+
+            renderFilteredTransactions(filteredTransactions);
+        }
+
+        function renderFilteredTransactions(filteredTransactions) {
+            const transactionList = document.getElementById('transaction-list');
+            transactionList.innerHTML = '';
+
+            filteredTransactions.forEach((transaction, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${new Date(transaction.date).toLocaleDateString()}</td>
+                    <td>${transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1)}</td>
+                    <td>${transaction.subtype.charAt(0).toUpperCase() + transaction.subtype.slice(1)}</td>
+                    <td>${transaction.description}</td>
+                    <td>₹${transaction.amount.toFixed(2)}</td>
+                    <td>${transaction.mode.charAt(0).toUpperCase() + transaction.mode.slice(1)}</td>
+                    <td><button class="delete-btn" onclick="deleteTransaction(${transactions.indexOf(transaction)})">Delete</button></td>
+                `;
+                transactionList.appendChild(row);
+            });
+        }
+
+        function downloadExcel() {
+            const worksheet = XLSX.utils.json_to_sheet(transactions);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Transactions");
+            const heading = document.getElementById('main-heading').innerText.split(" ")[0];
+            const fileName = prompt("Enter the file name:", `${heading}-${new Date().toLocaleDateString()}`) || 'transactions.xlsx';
+            XLSX.writeFile(workbook, `${fileName}.xlsx`);
+        }
+
+        function moveToNextInput(nextInputId) {
+            const nextInput = document.getElementById(nextInputId);
+            if (nextInput) {
+                nextInput.focus();
             }
         }
 
-        clearAllButton.onclick = function() {
-            if (confirm('Are you sure you want to clear all transactions?')) {
-                localStorage.removeItem('transactions');
-                transactionList.length = 0; // Clear the array
-                renderTransactions();
-            }
-        };
-
-        exportButton.onclick = function() {
-            const wb = XLSX.utils.book_new();
-            const ws = XLSX.utils.json_to_sheet(transactionList);
-            XLSX.utils.book_append_sheet(wb, ws, 'Transactions');
-            XLSX.writeFile(wb, `${document.getElementById('main-heading').innerText} - ${new Date().toLocaleDateString()}.xlsx`);
-        };
-
-        headingEdit.onclick = function() {
-            const newHeading = prompt('Enter new company name:', mainHeading.innerText);
+        // Edit heading
+        document.querySelector('.edit-heading').addEventListener('click', function() {
+            const newHeading = prompt("Enter new company name:", document.getElementById('main-heading').innerText.split(" ")[0]);
             if (newHeading) {
-                mainHeading.innerText = newHeading;
-                localStorage.setItem('companyName', newHeading);
+                document.getElementById('main-heading').innerText = newHeading;
             }
-        };
-
-        function applyFilters() {
-            const fromDate = fromDateInput.value;
-            const toDate = toDateInput.value;
-            renderTransactions(fromDate, toDate);
-        }
-
-        fromDateInput.addEventListener('change', applyFilters);
-        toDateInput.addEventListener('change', applyFilters);
-        transactionFilter.addEventListener('change', applyFilters);
-        subtypeFilter.addEventListener('change', applyFilters);
-        document.getElementById('filter-transactions').onclick = applyFilters;
-
-        // Render transactions on load
-        renderTransactions();
+        });
     </script>
 </body>
 </html>
